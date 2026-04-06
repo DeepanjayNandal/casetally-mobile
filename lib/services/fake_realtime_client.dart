@@ -1,58 +1,23 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import '../features/search/models/search_event.dart';
 
-/// Development-only fake WebSocket client
-///
-/// **Purpose:**
-/// - Simulates realistic event stream
-/// - No backend needed for frontend development
-/// - Tests streaming UI behavior
-/// - Demonstrates Perplexity-style progressive rendering
-///
-/// **Injection:**
-/// Only used in debug builds, injected at repository layer
-///
-/// **NOT a feature flag** - separate class, clean separation
+/// Development-only WebSocket client that simulates streaming responses.
+/// Mirrors the exact event protocol the real backend uses.
 class FakeRealtimeClient {
-  /// Simulate search with realistic delays
-  ///
-  /// **Event Flow:**
-  /// 1. started (500ms)
-  /// 2. sources_count (300ms)
-  /// 3. citations (400ms)
-  /// 4. summary_chunk x 6 (200ms each)
-  /// 5. sources (300ms)
-  /// 6. artifacts (400ms) - primary legal documents (PDFs)
-  /// 7. related_articles (300ms)
-  /// 8. done (100ms)
-  ///
-  /// Total: ~2.9 seconds (realistic)
   Stream<SearchEvent> search({
     required String query,
     required String requestId,
     String? groupId,
   }) async* {
-    print('🎭 [FakeClient] Simulating search for: "$query"');
+    debugPrint('[FakeWS] query: "$query"');
 
-    // 1. Started event
     await Future.delayed(const Duration(milliseconds: 500));
-    yield StartedEvent(
-      requestId: requestId,
-      groupId: groupId,
-      query: query,
-    );
-    print('🎭 [FakeClient] → started');
+    yield StartedEvent(requestId: requestId, groupId: groupId, query: query);
 
-    // 2. Sources count
     await Future.delayed(const Duration(milliseconds: 300));
-    yield SourcesCountEvent(
-      requestId: requestId,
-      groupId: groupId,
-      count: 5,
-    );
-    print('🎭 [FakeClient] → sources_count: 5');
+    yield SourcesCountEvent(requestId: requestId, groupId: groupId, count: 5);
 
-    // 3. Citations
     await Future.delayed(const Duration(milliseconds: 400));
     yield CitationsEvent(
       requestId: requestId,
@@ -78,9 +43,7 @@ class FakeRealtimeClient {
         },
       ],
     );
-    print('🎭 [FakeClient] → citations: 2');
 
-    // 4. Summary chunks (streaming text)
     final summaryParts = [
       '**Miranda rights** are constitutional protections that police must inform you about before custodial interrogation.\n\n',
       '• **Right to remain silent** - You don\'t have to answer questions\n',
@@ -98,10 +61,8 @@ class FakeRealtimeClient {
         chunk: summaryParts[i],
         isComplete: i == summaryParts.length - 1,
       );
-      print('🎭 [FakeClient] → summary_chunk ${i + 1}/${summaryParts.length}');
     }
 
-    // 5. Sources
     await Future.delayed(const Duration(milliseconds: 300));
     yield SourcesEvent(
       requestId: requestId,
@@ -121,9 +82,7 @@ class FakeRealtimeClient {
         },
       ],
     );
-    print('🎭 [FakeClient] → sources: 2');
 
-    // 6. Artifacts (primary legal documents - PDFs)
     await Future.delayed(const Duration(milliseconds: 400));
     yield ArtifactsEvent(
       requestId: requestId,
@@ -164,9 +123,7 @@ class FakeRealtimeClient {
       ],
       isComplete: true,
     );
-    print('🎭 [FakeClient] → artifacts: 4');
 
-    // 7. Related articles
     await Future.delayed(const Duration(milliseconds: 300));
     yield RelatedArticlesEvent(
       requestId: requestId,
@@ -188,30 +145,24 @@ class FakeRealtimeClient {
         },
       ],
     );
-    print('🎭 [FakeClient] → related_articles: 2');
 
-    // 8. Done
     await Future.delayed(const Duration(milliseconds: 100));
     yield DoneEvent(
       requestId: requestId,
       groupId: groupId,
       processingTimeMs: 2900,
     );
-    print('🎭 [FakeClient] → done (2900ms total)');
+
+    debugPrint('[FakeWS] done');
   }
 
-  /// Simulate error scenario (for testing error handling)
   Stream<SearchEvent> searchWithError({
     required String query,
     required String requestId,
     String? groupId,
   }) async* {
     await Future.delayed(const Duration(milliseconds: 500));
-    yield StartedEvent(
-      requestId: requestId,
-      groupId: groupId,
-      query: query,
-    );
+    yield StartedEvent(requestId: requestId, groupId: groupId, query: query);
 
     await Future.delayed(const Duration(milliseconds: 800));
     yield ErrorEvent(

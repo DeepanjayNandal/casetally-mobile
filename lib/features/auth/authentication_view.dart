@@ -68,7 +68,7 @@ class AuthenticationView extends ConsumerWidget {
 
                     // Brand name
                     Center(
-                      child: AppText.brand(context, 'OPENRIGHTS'),
+                      child: AppText.brand(context, 'CaseTally'),
                     ),
 
                     const SizedBox(height: AppTheme.spacingSm),
@@ -163,58 +163,32 @@ class AuthenticationView extends ConsumerWidget {
 
   // ==================== EVENT HANDLERS ====================
 
-  /// Handler: Apple Sign In (placeholder)
-  /// Phase 3: Replace with real Apple OAuth
   void _handleAppleSignIn(BuildContext context, WidgetRef ref) async {
     HapticFeedback.mediumImpact();
     await _showComingSoonDialog(context, 'Apple Sign In');
   }
 
-  /// Handler: Google Sign In (placeholder)
-  /// Phase 3: Replace with real Google OAuth
   void _handleGoogleSignIn(BuildContext context, WidgetRef ref) async {
     HapticFeedback.mediumImpact();
     await _showComingSoonDialog(context, 'Google Sign In');
   }
 
-  /// Handler: Email Sign In (placeholder)
-  /// Phase 3: Replace with email/password flow
   void _handleEmailSignIn(BuildContext context, WidgetRef ref) async {
     HapticFeedback.mediumImpact();
     await _showComingSoonDialog(context, 'Email Sign In');
   }
 
-  /// Handler: Phone Sign In (placeholder)
-  /// Phase 3: Replace with phone verification flow
   void _handlePhoneSignIn(BuildContext context, WidgetRef ref) async {
     HapticFeedback.mediumImpact();
     await _showComingSoonDialog(context, 'Phone Sign In');
   }
 
-  /// Handler: Continue as Guest (FULLY FUNCTIONAL)
-  ///
-  /// **Flow:**
-  /// 1. Calls appStateProvider.continueAsGuest()
-  /// 2. Persists guest=true in SharedPreferences
-  /// 3. Navigates to /app
-  /// 4. User won't see auth screen again until sign out
   void _handleGuestContinue(BuildContext context, WidgetRef ref) async {
     HapticFeedback.lightImpact();
-
-    print('👤 [Auth] User continuing as guest');
-
-    // Mark user as guest in app state (persists to SharedPreferences)
     await ref.read(appStateProvider.notifier).continueAsGuest();
-
-    // Navigate to main app
-    if (context.mounted) {
-      context.go('/app');
-    }
+    if (context.mounted) context.go('/app');
   }
 
-  /// Show "Coming Soon" dialog for placeholder buttons
-  ///
-  /// **Phase 3:** Remove these and implement real OAuth
   Future<void> _showComingSoonDialog(
       BuildContext context, String feature) async {
     return showCupertinoDialog(

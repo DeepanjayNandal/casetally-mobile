@@ -3,22 +3,6 @@ import '../models/uscode_title.dart';
 import '../repositories/uscode_repository.dart';
 import '../repositories/mock_uscode_repository.dart';
 
-// ==================== RIVERPOD STATE MANAGEMENT ====================
-//
-// **How Riverpod Works (Short Version):**
-//
-// 1. STATE = Data that changes (titles list, loading status, errors)
-// 2. PROVIDER = Exposes state to widgets
-// 3. NOTIFIER = Updates state when user does something
-// 4. WIDGETS = Watch providers and rebuild when state changes
-//
-// **Flow:**
-// User taps button → Widget calls notifier.loadTitles() →
-// Notifier fetches from repository → Notifier updates state →
-// Riverpod notifies watching widgets → Widgets rebuild with new data
-//
-// **Key Concept:** Like Redux/Bloc but simpler - just providers + notifiers
-// ===================================================================
 
 /// Status enum - tracks what's happening right now
 /// Concept: Finite state machine - only ONE status at a time
@@ -212,36 +196,10 @@ class UsCodeNotifier extends StateNotifier<UsCodeState> {
   }
 }
 
-// ==================== GLOBAL PROVIDERS ====================
-//
-// **How Widgets Use This:**
-//
-// 1. Watch state:
-//    final state = ref.watch(usCodeProvider);
-//    if (state.isLoading) return Spinner();
-//
-// 2. Call actions:
-//    ref.read(usCodeProvider.notifier).loadFeaturedTitles();
-//
-// **Riverpod Magic:**
-// - Auto-rebuilds widgets when state changes
-// - Auto-disposes when no widgets watching
-// - Thread-safe (can't have race conditions)
-// ======================================================
 
-/// Main provider - exposes state to widgets
-/// **ONE-LINE SWAP:** Change MockUsCodeRepository → APIUsCodeRepository
 final usCodeProvider =
     StateNotifierProvider<UsCodeNotifier, UsCodeState>((ref) {
-  // Phase 1: Mock repository (hardcoded data)
-  final repository = MockUsCodeRepository();
-
-  // Phase 3: Uncomment this to use real API
-  // final repository = APIUsCodeRepository(
-  //   baseUrl: 'https://api.casetally.com',
-  // );
-
-  return UsCodeNotifier(repository);
+  return UsCodeNotifier(const MockUsCodeRepository());
 });
 
 /// Convenience provider - just featured titles
