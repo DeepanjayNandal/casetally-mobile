@@ -1,85 +1,112 @@
-# CaseTally — AI Powered Legal Research iOS App
+# CaseTally
 
-> iOS client for real-time AI legal search with streaming LLM answers, U.S. Code browsing, and a native glass design system. Built with Flutter and Riverpod.
+AI powered legal research app for lawyers, law students, and clients. Ask legal questions in natural language and get streaming AI answers with inline citations, source references, and relevant laws rendered progressively as they arrive.
 
-## Overview
+Connects to a self-hosted LLM backend over WebSocket. Backend lives in [casetally-backend](https://github.com/DeepanjayNandal/casetally-backend).
 
-CaseTally is an iOS application that brings AI powered legal research to lawyers, law students, and clients. Users ask natural language legal questions and receive streaming AI answers with inline citations and source references rendered progressively as they arrive from the backend.
+## Tech Stack
 
-The app communicates with a self-hosted LLM backend over WebSocket, consuming a typed event stream and rendering results in real time. Backend lives in a separate repository.
-
-## Technical Highlights
-
-**Real-Time Streaming Client**
-- WebSocket based search with per-query connection lifecycle — no persistent socket, intentionally mobile-friendly
-- Event-driven protocol consuming 9 distinct typed events: `started`, `sources_count`, `citations`, `summary_chunk`, `sources`, `artifacts`, `related_articles`, `done`, `error`
-- Progressive UI rendering where sources, citations, and AI summary each render independently as their event arrives
-- Request-scoped event handling with UUID based correlation to prevent stale events from a slow previous query corrupting active search state
-
-**Flutter iOS App**
-- Pure Cupertino widget tree throughout, no Material widgets
-- Riverpod for state management with an explicit `SessionStatus` finite state machine — no boolean flag combinations, no ambiguous computed states
-- go_router with ShellRoute for persistent glass bottom navigation with zero flash across route transitions
-- Repository pattern across every feature — switching from mock to live backend is a single line change
-
-**Glass Design System**
-- Two-tier glass morphism system: overlay tier for navigation bars, surface tier for content cards
-- All values centralized in `glass_tokens.dart` — one file controls the entire visual system
-- Navigation pill with easeOutCubic animation, mathematically verified coordinate space to avoid double-counted padding offsets
-
-## Stack
-
-| Layer | Technology |
-|---|---|
-| Mobile | Flutter (iOS, Cupertino) |
-| State Management | Riverpod |
-| Navigation | go_router |
-| Real-Time | WebSocket (per-query lifecycle) |
-| Auth | Apple Sign In |
+Flutter (iOS) · Riverpod · go_router · WebSocket · Apple Sign In
 
 ## Features
 
-**AI Legal Search** — Natural language queries with streaming LLM answers, inline citations, and source references rendered progressively
+**AI Legal Search**
+Users type a legal question and results stream in progressively: source count first, then citations, then the AI summary word by word, then full sources, then related articles. Each section renders independently as its event arrives rather than waiting for the full response.
 
-**U.S. Code Browser** — Browse all 54 U.S. Code titles with hierarchical drill-down to individual sections, backed by a live API
+**U.S. Code Browser**
+Browse all 54 titles of the U.S. Code with hierarchical drill-down through parts, chapters, and individual sections. Backed by a live REST API with a mock repository for offline development.
 
-**Legal News Feed** — Curated legal updates with article viewer and reading history tracking
+**Legal News Feed**
+Home dashboard with a featured top story, latest legal updates, and a daily learning tip. Reading history is tracked locally and surfaced in a Continue Reading section.
 
-**Resources Library** — Categorized legal education articles with full-text reading experience
+**Resources Library**
+Categorized legal education articles covering constitutional rights, state and federal law, and elected officials. Full article viewer with section-based rendering.
 
-**Authentication** — Apple Sign In with guest mode and session state management
+**Authentication**
+Apple Sign In with guest mode. Session state drives all router redirects through a truth table, no boolean flags anywhere.
 
-**Settings** — Theme switching (light/dark/system), session controls, account management
+## Architecture
 
-## Architecture Decisions Worth Noting
+**Streaming search state**
 
-**Repository Pattern** — Every feature (search, U.S. Code, articles) has a typed repository interface with separate mock and live implementations. Swapping data sources for any feature is one line. Local development and backend integration are completely decoupled.
+The search feature is built around an accumulative state model. When a query is submitted, a UUID is generated and stored as the active request ID. The WebSocket client opens a connection, sends the query, and emits a typed stream of events. The `SearchNotifier` subscribes to that stream and routes each event to a pure handler function that returns the next state.
 
-**Request-Scoped WebSocket Events** — Each search query generates a UUID. All incoming events are validated against the active request ID before being applied to state. A slow previous query finishing late cannot corrupt the current search UI.
+Every event carries the request ID it belongs to. Handlers check it before applying any state update, so a slow previous query completing late cannot corrupt the UI for a new search.
 
-**SessionStatus FSM** — Auth state is modeled as a finite state machine with three explicit values: `unauthenticated`, `guest`, `authenticated`. Router redirects are a simple truth table lookup with no computed boolean logic.
+```
+SearchNotifier.submitQuery()
+  → generates UUID requestId
+  → sets SearchState.loading
+  → subscribes to WebSocketSearchRepository.searchStream()
+      → RealtimeClient opens WebSocket, emits SearchEvent stream
+  → each event routed to SearchEventHandlers (pure functions)
+  → state accumulates: laws, summaryChunks, sources, artifacts, relatedArticles
+  → DoneEvent → SearchState.success
+```
 
-**ShellRoute Persistent Navigation** — The glass bottom bar lives at the router level in a ShellRoute, not inside individual page scaffolds. Route transitions never flash or rebuild the navigation bar.
+Nine typed events make up the protocol:
 
-**Two-Tier Glass System** — Navigation bars need strong blur as floating elements. Content cards need lighter blur for readability. These are separate tiers driven by a single token file rather than per-component hardcoded values.
+```
+started · sources_count · citations · summary_chunk · sources · artifacts · related_articles · done · error
+```
+
+**Repository pattern**
+
+Every feature has a typed interface and separate mock and live implementations. Switching data sources is one line in the provider. During development the mock runs locally with no backend dependency.
+
+```dart
+// development
+WebSocketSearchRepository(fakeClient: FakeRealtimeClient())
+
+// production (one line change)
+WebSocketSearchRepository(client: RealtimeClient(baseUrl: 'wss://api.casetally.com'))
+```
+
+Same pattern applies to U.S. Code: `MockUsCodeRepository` and `APIUsCodeRepository` both implement `UsCodeRepository`. The provider decides which one runs.
+
+**Session state as a finite state machine**
+
+Auth is modeled with three explicit states: `unauthenticated`, `guest`, `authenticated`. The router reads a single `SessionStatus` value and applies a complete truth table for redirects. No computed boolean combinations, no edge cases.
+
+```
+unauthenticated + /app/* → redirect /auth
+guest/authenticated + /auth → redirect /app
+guest/authenticated + /app/* → allow
+```
+
+**Persistent navigation with ShellRoute**
+
+The bottom navigation bar is declared once inside a `ShellRoute` in the router config. All in-app routes are children of that shell. The bar never rebuilds or flashes during route transitions because it is never part of any page scaffold.
+
+**Search transition**
+
+Navigating into the search input plays a compound animation: the current view fades to 85% opacity and scales to 0.97 while the search page fades in, scales up from 0.96, and slides in 6% from the right. 280ms, `easeOutCubic`, no overshoot.
 
 ## Project Structure
 
 ```
 lib/
-├── components/          # Shared UI components (AppCard, AppText, GlassBottomBar, etc.)
+├── components/          # Shared UI: AppCard, AppText, GlassBottomBar, DetailScaffold
 ├── features/
-│   ├── auth/            # Authentication flow
+│   ├── auth/            # Authentication view and session handling
 │   ├── home/            # News feed, reading history, home dashboard
-│   ├── search/          # AI search — models, events, providers, repositories, views, widgets
-│   ├── uscode/          # U.S. Code browser — hierarchy, sections, repository
-│   ├── resources/       # Legal education articles
-│   └── settings/        # App settings
-├── routes/              # go_router configuration with ShellRoute
-├── services/            # WebSocket RealtimeClient
-├── state/               # Global app state
-├── theme/               # AppTheme, GlassTokens, BottomBarMetrics
-└── utils/               # StatusBarObserver
+│   ├── search/
+│   │   ├── models/      # SearchState, SearchEvent, typed event subclasses
+│   │   ├── providers/   # SearchNotifier, SearchEventHandlers
+│   │   ├── repositories/# SearchRepository interface, WebSocket + Mock implementations
+│   │   ├── views/       # SearchInputPage, SearchResultsPage
+│   │   └── widgets/     # AiSummarySection, SourcesSection, ArtifactCard, StreamingAnswer
+│   ├── uscode/
+│   │   ├── models/      # UsCodeTitle, UsCodeHierarchyNode
+│   │   ├── providers/   # UsCodeNotifier
+│   │   ├── repositories/# UsCodeRepository interface, API + Mock implementations
+│   │   └── views/       # UsCodeListView, UsCodeHierarchyView, UsCodeSectionView
+│   ├── resources/       # Article viewer, category drill-down, sample content
+│   └── settings/        # Theme switching, session controls
+├── routes/              # GoRouter config with ShellRoute and truth table redirects
+├── services/            # RealtimeClient (WebSocket), FakeRealtimeClient (mock)
+├── state/               # AppState, SessionStatus FSM
+└── theme/               # AppTheme, GlassTokens, BottomBarMetrics, AppConstants
 ```
 
 ## Local Development
@@ -89,17 +116,18 @@ flutter pub get
 flutter run
 ```
 
-Switch between mock and live backend in the search provider:
+The app runs fully on mock data out of the box. To connect to a real backend, update the client in `search_provider.dart`:
 
 ```dart
-// Mock (default for local dev)
-final repository = MockSearchRepository();
+// current (mock)
+WebSocketSearchRepository(fakeClient: FakeRealtimeClient())
 
-// Live backend
-final repository = WebSocketSearchRepository(baseUrl: 'ws://localhost:8000');
+// live backend
+WebSocketSearchRepository(client: RealtimeClient(baseUrl: 'ws://localhost:8000'))
 ```
 
-## Related
+## Related Repositories
 
-- [casetally-backend](https://github.com/DeepanjayNandal/casetally-backend) — FastAPI, pgvector, Ollama, hybrid RAG pipeline
-- [casetally-web](https://github.com/DeepanjayNandal/casetally-web) — Next.js web client
+[casetally-backend](https://github.com/DeepanjayNandal/casetally-backend) — FastAPI, PostgreSQL, pgvector, Ollama, hybrid RAG pipeline
+
+[casetally-web](https://github.com/DeepanjayNandal/casetally-web) — Next.js web client
