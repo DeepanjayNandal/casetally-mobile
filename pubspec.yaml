@@ -1,5 +1,5 @@
 name: casetally
-description: Legal AI assistant with iOS-native experience
+description: AI-powered legal research app. Ask legal questions in natural language and get streaming answers with citations, source references, and relevant laws.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,16 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # State Management - Riverpod ecosystem
   flutter_riverpod: ^2.4.9
   riverpod_annotation: ^2.3.3
-
-  # Routing - Declarative navigation
   go_router: ^13.0.0
-
-  # iOS-specific
   cupertino_icons: ^1.0.6
-
   shared_preferences: ^2.2.2
   web_socket_channel: ^2.4.0
   uuid: ^4.5.1
@@ -29,15 +23,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  # Code generation for Riverpod
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.7
-
-  # Linting
   flutter_lints: ^3.0.1
 
 flutter:
-  uses-material-design: false  # Cupertino-only app
+  uses-material-design: false
 
-  # Using system fonts (San Francisco on iOS/macOS, Roboto on Android)
-  # This provides native iOS typography without custom font files
+  assets:
+    - assets/splash/
